@@ -10,9 +10,6 @@ int main() {
 	l1.insert(3);
 	l1.insert(4);
 	l1.insert(2, 3);
-
-    //std::cout << l1.get(3);
-
 	l1.print();
 
 	_getch();

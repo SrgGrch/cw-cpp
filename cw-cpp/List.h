@@ -11,19 +11,27 @@ class List {
 	};
 public:
 	List() :head() {}
-	void insert(T x);
-	void insert(T x, int pos);
-	T pop();
-	void del(); // Удаление последнего
-	void clear(); // Удаление всего
-	T get(int x); // Поиск по позиции
+	void insert(T x); //Добавление элемента в конец списка
+	void insert(T x, int pos); // Добавление элемента на позицию @pos - позиция
+	T pop(); //DEL
+	void del(); // Удаление последнего элемента
+	void del(int pos); // Удаление элемента @pos - позиция элемента
+	void clear(); // Отчистка списка
+	T get(int pos); // Получение элемента @pos - позиция
 	void print();
-	//private:
+	void binWrite(); // запись в бинарный файл
+	void binRead(); //чтение с бинарного файла
+
+	void setFileName(std::string _fileName);
+	std::string getFileName();
+	void sort(); // сортировка
+
 private:
 	Node * firstItem;
 	Node *head;
 	int size = 0;
 	void checkPos(int pos);
+	std::string fileName = "list.bin"; // Имя файла в который будет записан список
 };
 
 
@@ -39,12 +47,8 @@ void List<T>::insert(T x) {
 	else {
 		head->next = n;
 		head = n;
-		//n->next = head;
 	}
 	size++;
-
-	//head->next = n;
-	//n = head;
 
 }
 
