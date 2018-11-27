@@ -5,34 +5,78 @@ class List {
 	struct Node {
 		T data;
 		Node *next;
-		int pos = 0;	
-		Node(T i) :data(i), next(0), pos(0) {};
-		Node(T i, int _pos) :data(i), next(0), pos(_pos) {};
+		Node(T i) :data(i), next(nullptr) {};
+		Node(T i, int _pos) :data(i), next(nullptr) {};
 
 	};
-
 public:
 	List() :head() {}
-	void push(T x);
+	void insert(T x);
+	void insert(T x, int pos);
 	T pop();
 	void del(); // Удаление последнего
 	void clear(); // Удаление всего
-	T find(int x); // Поиск по позиции
+	T get(int x); // Поиск по позиции
 	void print();
 	//private:
+private:
+	Node * firstItem;
 	Node *head;
+	int size = 0;
+	void checkPos(int pos);
 };
 
 
 //#include "List.h"
 
 template <typename T>
-void List<T>::push(T x) {
-	Node *n;
-	if (head == nullptr) n = new Node(x);
-	else n = new Node(x, head->pos++);
-	n->next = head;
-	head = n;
+void List<T>::insert(T x) {
+	Node *n = new Node(x);
+	if (head == nullptr) {
+		firstItem = n;
+		head = n;
+	}
+	else {
+		head->next = n;
+		head = n;
+		//n->next = head;
+	}
+	size++;
+
+	//head->next = n;
+	//n = head;
+
+}
+
+template<typename T>
+inline void List<T>::insert(T x, int pos)
+{
+	Node *newNode = new Node(x);
+	Node *n = firstItem;
+	int a = 0;
+
+	try {
+		checkPos(pos);
+	}
+
+	catch (int e) {
+		std::cout << "IndexOutOfBoundsException: pos: " << pos << " size: " << size << std::endl;
+		throw 1;
+	}
+
+	if (pos != 0) {
+		for (; n; n = n->next) {
+			if (a + 1 == pos) break;
+			a++;
+		}
+		newNode->next = n->next;
+		n->next = newNode;
+	}
+	else {
+		newNode->next = n;
+		firstItem = newNode;
+	}
+	size++;
 }
 template <typename T>
 T List<T>::pop() {
@@ -43,34 +87,43 @@ T List<T>::pop() {
 
 template <typename T>
 void List<T>::print() {
-	if (head == 0) std::cout << "List is empty";
+	if (firstItem == nullptr) std::cout << "List is empty";
 	else {
 		Node *n;
-		for (n = head; n; n = n->next) {
+		for (n = firstItem; n; n = n->next) {
 			std::cout << n->data << ' ';
 		}
 	}
 	std::cout << std::endl;
 }
 
+template<typename T>
+inline void List<T>::checkPos(int pos) {
+	if (pos > size) throw 1;
+}
+
 template <typename T>
 void List<T>::clear() {
 	Node *n;
-	for (n = head; n; n = n->next) {
-		head = head->next;
+	for (n = firstItem; n; n = n->next) {
+		firstItem = firstItem->next;
 	}
+	head = nullptr;
+	firstItem = nullptr;
 }
 
 template <typename T>
 void List<T>::del() {
 	head = head->next;
+	size--;
 }
 
 template <typename T>
-T List<T>::find(int x) {
+T List<T>::get(int x) {
 	Node *n;
+	int a = 0;
 	for (n = head; n; n = n->next) {
-		if (n->pos == x) return n->data;
+		if (a++ == x) return n->data;
 	}
 	return T();
 }

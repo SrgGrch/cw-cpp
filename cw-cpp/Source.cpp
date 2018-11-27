@@ -1,14 +1,20 @@
 #include <conio.h>
 #include "List.h"
 
-void main() {
+int main() {
 
-	List<char> l1;
+	List<int> l1;
 
-	l1.push('a');
-	l1.push('v');
-	l1.push('c');
+	l1.insert(1);
+	
+	l1.insert(3);
+	l1.insert(4);
+	l1.insert(2, 3);
+
+    //std::cout << l1.get(3);
+
 	l1.print();
 
 	_getch();
+	return 0;
 }
