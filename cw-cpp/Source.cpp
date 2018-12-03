@@ -3,14 +3,18 @@
 
 int main() {
 
-	List<int> l1;
+	List<int> l;
 
-	l1.insert(1);
-	
-	l1.insert(3);
-	l1.insert(4);
-	l1.insert(2, 3);
-	l1.print();
+	l.insert(1);
+	//l.insert(3);
+	//l.insert(4);
+	//l.clear();
+
+	//l.binMove(1);
+
+	//l.insert(2, 1);
+
+	l.print();
 
 	_getch();
 	return 0;
