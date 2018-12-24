@@ -1,29 +1,37 @@
 #pragma once
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+#include <vector>
 
-const int INDENT = 2;
 template <typename T>
 class Node {
 public:
+	int nextBin = 0;
+	int dataSize;
 	T data;
-	//Node *next;
-	int nextBin;
-	Node(T i) :data(i) {};
-	Node(T i, int _pos) :data(i) {};
+
+	Node(T i);
+	Node(T i, int _pos) :data(i) {
+		dataSize = sizeof(i);
+	};
 	Node() {};
 };
 
-template <typename T>
-class LocalNode {
-public:
-	T data;
-	LocalNode<T> *next;
-	int nextBin;
-	LocalNode(T i) :data(i) {};
-	LocalNode(T i, int _pos) :data(i) {};
-	LocalNode() {};
-};
+template<typename T>
+inline Node<T>::Node(T i)
+{
+	data = i;
+	dataSize = sizeof(i);
+}
+
+template<>
+inline Node<char*>::Node(char* i)
+{
+	data = new char[strlen(i)];
+	strcpy(data, i);
+	dataSize = sizeof(i);
+}
 
 
 template <typename T>
@@ -44,32 +52,40 @@ public:
 	void print();
 	void sort(); // сортировка
 
-	void binWrite(Node<T> *n); // запись в бинарный файл
+	void binWrite(Node<T> *n, bool flag); // запись в бинарный файл, @flag - false - список пустой
 	void binWrite(Node<T> *n, int pos); // запись в бинарный файл @pos - позиция на которую нужно записать элемент
 	typename Node<T>* binRead(int pos); //чтение с бинарного файла @pos - позиция считываемого узла
-	void binMove(int pos); // Перемещает часть списка вправо @pos - позция начального элемента
+
 
 	void setFileName(std::string _fileName);
 	std::string getFileName();
 
 
-
-
 private:
-	Node<T> * firstItem;
+	Node<T> *firstItem;
 	Node<T> *head;
 	int size = 0;
+	std::vector<Node<T>*> localList;
 
+	int seek(int pos); // возвращает указатель на начало элемента
 	void checkPos(int pos);
 	void checkSize(); //проверка размера файла
-
+	void binMove(int pos, int elemSize); // Перемещает часть списка вправо @pos - позция начального элемента, @elemSize - кол-во битов на которые надо сдвинуть элементы
+	void loadInMemory();
+	void loadInMemory(int posStart);
+	Node<T>* getNode(int pos);
+	void clearInMemoryList();
+	void insertNode(Node<T> *n);
 	std::string fileName = "list.bin"; // Имя файла в который будет записан список
+	void sortAlg(std::vector<Node<T>*> v);
+
+	class comp {
+	public:
+		inline bool operator() (Node<T>& a, Node<T>& b) {
+			return (a.data() < b.data());
+		}
+	};
 };
-
-
-
-
-
 
 
 
@@ -81,18 +97,22 @@ inline List<T>::~List()
 }
 
 template <typename T>
+inline void List<T>::sortAlg(std::vector<Node<T>*> v) {
+	Node<T>* tmp;
+	for (int i = 1; i < localList.size(); i++)
+		for (int k = i; k != 0 && localList[k]->data < localList[k - 1]->data; k--) {
+			tmp = localList[k]; localList[k] = localList[k - 1]; localList[k - 1] = tmp;
+		}
+}
+
+template <typename T>
 void List<T>::insert(T x) {
 	Node<T> *n = new Node<T>(x);
-	if (head == nullptr) {
-		firstItem = n;
-		n->nextBin = (sizeof(Node<T>))*(size + 1);
-		head = n;
-		binWrite(head);
+	if (size == 0) {
+		binWrite(n, false);
 	} else {
-		n->nextBin = (sizeof(Node<T>))*(size + 1);
 		head = n;
-		binWrite(head);
-
+		binWrite(n, true);
 	}
 	size++;
 
@@ -102,8 +122,7 @@ template<typename T>
 inline void List<T>::insert(T x, int pos)
 {
 	Node<T> *n = new Node<T>(x);
-	n->nextBin = sizeof(Node<T>)*pos;
-	int a = 0;
+	int elemSize = n->dataSize + sizeof(int) + sizeof(int);
 
 	try {
 		checkPos(pos);
@@ -113,11 +132,20 @@ inline void List<T>::insert(T x, int pos)
 		std::cout << "IndexOutOfBoundsException: pos: " << pos << " size: " << size << std::endl;
 		throw 1;
 	}
-	if (pos != (size - 1)) {
-		binMove(pos);
-		binWrite(n, pos);
-	} else {
-		binWrite(n);
+	if (size == 0) binWrite(n, false);
+	else {
+		if (pos != (size)) {
+			if (pos == 0) {
+				binMove(pos, elemSize);
+				n->nextBin = elemSize;
+				binWrite(n, pos);
+			} else {
+				binMove(pos, elemSize);
+				binWrite(n, pos);
+			}
+		} else {
+			binWrite(n, true);
+		}
 	}
 	size++;
 }
@@ -135,12 +163,45 @@ void List<T>::print() {
 }
 
 template<typename T>
-inline void List<T>::binWrite(Node<T> *n)
+inline void List<T>::sort()
 {
-	std::ofstream o;
-	o.open(fileName, std::ios::binary | std::ofstream::app);
-	o.seekp((sizeof(Node<T>))*size, std::ios::beg);
-	o.write((char*)&(*n), sizeof(Node<T>));
+	loadInMemory();
+	//std::sort(localList.begin(), localList.end(), comp());
+	sortAlg(localList);
+	size = 0;
+	for (int i = 0; i < localList.size(); i++) {
+		insert(localList[i]->data);
+	}
+}
+
+template<typename T>
+inline void List<T>::binWrite(Node<T> *n, bool flag)
+{
+	std::fstream o;
+	o.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+	int position = seek(size - 1);
+	if (!flag) {
+		o.seekp(position, std::ios::beg);
+		o.write((char*)&(*n), sizeof(*n));
+	} else {
+		int posPrev = position;
+		int sizePrev = 0;
+		int *newPointer;
+
+		o.seekp(posPrev + sizeof(int), std::ios::beg);											// переход на ячейку размера
+		o.read((char*)&(sizePrev), sizeof(int));												// Чтение его размера
+		o.seekp(posPrev, std::ios::beg);														// ячейка указателя
+
+		o.seekp(posPrev, std::ios::beg);
+		newPointer = new int(posPrev + sizePrev + sizeof(int) + sizeof(int));
+		o.write((char*)&(*newPointer), sizeof(int));
+
+		o.seekp(*newPointer, std::ios::beg);
+		o.write((char*)&(*n), sizeof(Node<T>));
+
+
+		delete newPointer;
+	}
 	o.close();
 }
 
@@ -149,8 +210,31 @@ inline void List<T>::binWrite(Node<T> *n, int pos)
 {
 	std::fstream o;
 	o.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
-	o.seekp((sizeof(Node<T>))*pos, std::ios::beg);
-	o.write((char*)&(*n), sizeof(Node<T>));
+
+	int posPrev = seek(pos - 1);
+	int sizePrev = 0;
+	int *newPointer;
+	if (pos == 0) {
+		o.seekp(0, std::ios::beg);
+		o.write((char*)&(*n), sizeof(Node<T>));//sizeof(dataSize +int + int)
+	} else {
+		o.seekp(posPrev + sizeof(int), std::ios::beg);											// переход на ячейку размера
+		o.read((char*)&(sizePrev), sizeof(int));												// Чтение его размера
+		o.seekp(posPrev, std::ios::beg);														// ячейка указателя
+
+		o.seekp(posPrev, std::ios::beg);
+		newPointer = new int(posPrev + sizePrev + sizeof(int) + sizeof(int));
+		o.write((char*)&(*newPointer), sizeof(int));
+
+		o.seekp(*newPointer, std::ios::beg);
+		o.write((char*)&(*n), sizeof(Node<T>)); //sizeof(dataSize +int + int)
+
+		o.seekp(*newPointer, std::ios::beg);
+		*newPointer = *newPointer + sizeof(int) + n->dataSize + sizeof(int);
+		o.write((char*)&(*newPointer), sizeof(int));
+		delete newPointer;
+	}
+
 	o.close();
 }
 
@@ -161,7 +245,7 @@ inline typename Node<T> * List<T>::binRead(int pos)
 	Node<T> *d = new Node<T>();
 
 	i.open(fileName, std::ios::binary | std::ofstream::app);
-	i.seekg(((sizeof(Node<T>))*pos), std::ios::beg);
+	i.seekg(seek(pos), std::ios::beg);
 	i.read((char*)&(*d), sizeof(Node<T>));
 	i.close();
 
@@ -169,57 +253,149 @@ inline typename Node<T> * List<T>::binRead(int pos)
 }
 
 template<typename T>
-inline void List<T>::binMove(int pos)
+inline void List<T>::binMove(int pos, int elemSize)
 {
-	std::ofstream out;
-	std::ifstream in;
 	std::fstream stream;
 	Node<T> *tmp = new Node<T>();
-	//i.open(fileName, std::ios::binary | std::ofstream::app);
+	stream.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
 
+	int *tmpSize = new int();
+	int tmpPos = 0;
 	for (int i = size; i > pos; i--) {
-		stream.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+		tmpPos = seek(i - 1);
+		stream.seekg(tmpPos + sizeof(int), std::ios::beg);							//
+		stream.read((char*)&(*tmpSize), sizeof(int));								// Считываем размер элемента (int + int + dataSize)
 
-		stream.seekg(((sizeof(Node<T>))*(i - 1)), std::ios::beg);
-		stream.read((char*)&(*tmp), sizeof(Node<T>));
+		stream.seekg(tmpPos, std::ios::beg);										//
+		stream.read((char*)&(*tmp), sizeof(int) + sizeof(int) + *tmpSize);			// Считываем элемент
 
-		tmp->nextBin += sizeof(Node<T>);
+		if (tmp->nextBin != 0) tmp->nextBin += elemSize;							//
 
-		stream.seekp(((sizeof(Node<T>))*(i)), std::ios::beg);
-		stream.write((char*)&(*tmp), sizeof(Node<T>));
+		stream.seekp(tmpPos + elemSize, std::ios::beg);								// 
+		stream.write((char*)&(*tmp), sizeof(int) + sizeof(int) + *tmpSize);			// Переносим элемент на elemSize бит
+	}
+	stream.close();
+	delete tmp;
+}
 
-		stream.close();
+template<typename T>
+inline void List<T>::loadInMemory()
+{
+	for (int i = 0; i < size; i++) {
+		localList.push_back(getNode(i));
+	}
+}
 
+template<typename T>
+inline void List<T>::loadInMemory(int posStart)
+{
+	for (int i = posStart; i < size; i++) {
+		localList.push_back(getNode(i));
 	}
 }
 
 
 template<typename T>
+inline Node<T>* List<T>::getNode(int pos)
+{
+	try {
+		checkPos(pos);
+	} catch (int e) {
+		std::cout << "IndexOutOfBoundsException: pos: " << pos << " size: " << size << std::endl;
+		throw 1;
+	}
+	return binRead(pos);
+}
+
+template<typename T>
+inline void List<T>::clearInMemoryList()
+{
+	for (int i = 0; i < localList.size(); i++) {
+		delete localList[i];
+	}
+	localList.clear();
+}
+
+template<typename T>
+inline void List<T>::insertNode(Node<T>* n)
+{
+	int position = seek(size);
+	o.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+
+
+	o.seekp(position, std::ios::beg);											// переход на ячейку размера
+	o.write((char*)&(*n), sizeof(n->dataSize + sizeof(int) * 2));												// Чтение его размера
+
+	o.close();
+	size++;
+}
+
+
+
+template<typename T>
+inline int List<T>::seek(int pos)
+{
+	std::fstream stream;
+	stream.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+	int next = 0;
+	int a = 0;
+	if (pos == 0) return 0;
+	else {
+		for (int i = 0; i < pos; i++) {
+			if (i != 0) {
+				stream.seekg(next, std::ios::beg);
+				stream.read((char*)&(next), sizeof(int));
+			} else {
+				stream.read((char*)&(next), sizeof(int));
+			}
+		}
+	}
+	stream.close();
+	return next;
+}
+
+template<typename T>
 inline void List<T>::checkPos(int pos) {
-	if (pos >= size) throw 1;
+	if (pos > size) throw 1;
+}
+
+template<typename T>
+inline void List<T>::del(int pos)
+{
+	int position = seek(pos);
+	int elemSize = 0;
+	std::fstream stream;
+	stream.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+
+	if (pos == size - 1) size--;
+	else {
+		stream.seekp(position + sizeof(int), std::ios::beg);
+
+		stream.read((char*)&(elemSize), sizeof(int));
+		elemSize += sizeof(int) * 2;
+		loadInMemory(pos + 1);
+
+		int j = 0;
+		Node<T> *tmp;
+		for (int i = pos; i < size - 1; i++) {
+			tmp = localList[j++];
+			tmp->nextBin -= elemSize;
+			binWrite(tmp, i);
+		}
+		size--;
+	}
+	stream.close();
+	clearInMemoryList();
 }
 
 template <typename T>
 void List<T>::clear() {
-	//Преобразовать стринг в const char или убрать возможность изменения имени файла со списком.
-	//const char * c = fileName.c_str();
-	//remove(c);
-	size = 0;
-}
-
-template <typename T>
-void List<T>::del() {
-	head = head->next;
-	size--;
+	const char * c = fileName.c_str();
+	remove(c);
 }
 
 template <typename T>
 T List<T>::get(int pos) {
-	//Node *n;
-	//int a = 0;
-	//for (n = head; n; n = n->next) {
-	//	if (a++ == x) return n->data;
-	//}
 	try {
 		checkPos(pos);
 	} catch (int e) {
