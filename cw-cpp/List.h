@@ -1,7 +1,6 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-#include <algorithm>
 #include <vector>
 
 template <typename T>
@@ -37,14 +36,17 @@ inline Node<char*>::Node(char* i)
 template <typename T>
 class List {
 public:
-	List() :head() {}
-	List(std::string _fileName) : head(), fileName(_fileName) {}
+	List() :head() {
+		getSizeFromFile();
+	}
+	List(std::string _fileName) : head(), fileName(_fileName) {
+		getSizeFromFile();
+	}
 	~List();
 
 	void insert(T x); //Добавление элемента в конец списка 
 	void insert(T x, int pos); // Добавление элемента на позицию @pos - позиция *
 
-	void del(); // Удаление последнего элемента *
 	void del(int pos); // Удаление элемента @pos - позиция элемента *
 
 	void clear(); // Отчистка списка
@@ -77,14 +79,11 @@ private:
 	void clearInMemoryList();
 	void insertNode(Node<T> *n);
 	std::string fileName = "list.bin"; // Имя файла в который будет записан список
-	void sortAlg(std::vector<Node<T>*> v);
+	void changeSize();
+	void getSizeFromFile();
+	void sortAlg();
+	const int indent = 4;
 
-	class comp {
-	public:
-		inline bool operator() (Node<T>& a, Node<T>& b) {
-			return (a.data() < b.data());
-		}
-	};
 };
 
 
@@ -96,8 +95,33 @@ inline List<T>::~List()
 	//remove(fileName);
 }
 
+template<typename T>
+inline void List<T>::changeSize()
+{
+	std::fstream stream;
+	stream.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+	int *s = new int(size);
+	stream.seekp(0, std::ios::beg);
+	stream.write((char*)&(*s), sizeof(size));
+
+	stream.close();
+}
+
+template<typename T>
+inline void List<T>::getSizeFromFile()
+{
+	std::fstream stream;
+	stream.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+	int *s = new int(0);
+	stream.seekp(0, std::ios::beg);
+	stream.read((char*)&(*s), sizeof(size));
+	size = *s;
+
+	stream.close();
+}
+
 template <typename T>
-inline void List<T>::sortAlg(std::vector<Node<T>*> v) {
+inline void List<T>::sortAlg() {
 	Node<T>* tmp;
 	for (int i = 1; i < localList.size(); i++)
 		for (int k = i; k != 0 && localList[k]->data < localList[k - 1]->data; k--) {
@@ -115,7 +139,7 @@ void List<T>::insert(T x) {
 		binWrite(n, true);
 	}
 	size++;
-
+	changeSize();
 }
 
 template<typename T>
@@ -148,6 +172,7 @@ inline void List<T>::insert(T x, int pos)
 		}
 	}
 	size++;
+	changeSize();
 }
 
 
@@ -166,12 +191,12 @@ template<typename T>
 inline void List<T>::sort()
 {
 	loadInMemory();
-	//std::sort(localList.begin(), localList.end(), comp());
-	sortAlg(localList);
+	sortAlg();
 	size = 0;
 	for (int i = 0; i < localList.size(); i++) {
 		insert(localList[i]->data);
 	}
+	clearInMemoryList();
 }
 
 template<typename T>
@@ -247,6 +272,7 @@ inline typename Node<T> * List<T>::binRead(int pos)
 	i.open(fileName, std::ios::binary | std::ofstream::app);
 	i.seekg(seek(pos), std::ios::beg);
 	i.read((char*)&(*d), sizeof(Node<T>));
+
 	i.close();
 
 	return d;
@@ -337,15 +363,17 @@ inline int List<T>::seek(int pos)
 {
 	std::fstream stream;
 	stream.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
-	int next = 0;
+	int next = indent;
 	int a = 0;
-	if (pos == 0) return 0;
+	if (pos == 0) return 0 + indent;
 	else {
+		
 		for (int i = 0; i < pos; i++) {
 			if (i != 0) {
 				stream.seekg(next, std::ios::beg);
 				stream.read((char*)&(next), sizeof(int));
 			} else {
+				stream.seekg(indent, std::ios::beg);
 				stream.read((char*)&(next), sizeof(int));
 			}
 		}
