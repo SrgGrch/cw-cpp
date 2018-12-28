@@ -1,7 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <conio.h>
 #include "List.h"
-#define type char
+#define type char*
 
 List<type> l;
 
@@ -25,14 +25,18 @@ void printMenu() {
 
 void checkInp(std::string inp) {
 	if (inp == "add") {
-		type arg;
+		std::string arg;
 		std::cin >> arg;
-		l.insert(arg);
+		type tmp = new char[arg.length() + 1];;
+		strcpy(tmp, arg.c_str());
+		l.insert(tmp);
 	} else if (inp == "addI") {
-		type arg1;
+		std::string tmp;
+		std::cin >> tmp;
+		type arg1 = new char[tmp.length() + 1];;
 		int arg2;
-		std::cin >> arg1;
 		std::cin >> arg2;
+		strcpy(arg1, tmp.c_str());
 		l.insert(arg1, arg2);
 	} else if (inp == "del") {
 		int arg;
@@ -68,7 +72,7 @@ void run() {
 }
 
 int main() {
-
+	//char* st = new char[];
 	run();
 	return 0;
 }
