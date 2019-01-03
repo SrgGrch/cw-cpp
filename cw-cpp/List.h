@@ -27,7 +27,7 @@ inline Node<char*>::Node(char* i)
 {
 	data = new char[strlen(i)];
 	strcpy(data, i);
-	dataSize = sizeof(i);
+	dataSize = strlen(i);
 }
 
 
@@ -265,7 +265,69 @@ inline void List<T>::binWrite(Node<T> *n, int pos){
 		o.write((char*)&(*newPointer), sizeof(int));
 		delete newPointer;
 	}
+	o.close();
+}
 
+template<>
+inline void List<char*>::binWrite(Node<char*> *n, bool flag)
+{
+	std::fstream o;
+	o.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+	int position = seek(size - 1);
+	if (!flag) {
+		o.seekp(position, std::ios::beg);
+		o.write((char*)&(n->nextBin), sizeof(int));
+		o.write((char*)&(n->dataSize), sizeof(int));
+		o.write((char*)&(n->data[0]), n->dataSize);
+	} else {
+		int posPrev = position;
+		int sizePrev = 0;
+		int *newPointer;
+		o.seekp(posPrev + sizeof(int), std::ios::beg); // переход на €чейку размера
+		o.read((char*)&(sizePrev), sizeof(int)); // „тение его размера
+		o.seekp(posPrev, std::ios::beg); // €чейка указател€
+		newPointer = new int(posPrev + sizePrev + sizeof(int) + sizeof(int)); // указатель на новый узел
+		o.write((char*)&(*newPointer), sizeof(int)); //запись указател€ на новый узел
+		o.seekp(*newPointer, std::ios::beg); // переход на место нового узла
+		o.write((char*)&(n->nextBin), sizeof(int));
+		o.write((char*)&(n->dataSize), sizeof(int));
+		o.write((char*)&(n->data[0]), n->dataSize);
+		delete newPointer;
+	}
+	o.close();
+}
+
+template<>
+inline void List<char*>::binWrite(Node<char*> *n, int pos) {
+	std::fstream o;
+	o.open(fileName, std::ios::binary | std::ios::out | std::ios::in);
+
+	int posPrev = seek(pos - 1);
+	int sizePrev = 0;
+	int *newPointer;
+	if (pos == 0) {
+		o.seekp(0, std::ios::beg);
+		o.write((char*)&(n->nextBin), sizeof(int));
+		o.write((char*)&(n->dataSize), sizeof(int));
+		o.write((char*)&(n->data[0]), n->dataSize);
+	} else {
+		o.seekp(posPrev + sizeof(int), std::ios::beg);											// переход на €чейку размера
+		o.read((char*)&(sizePrev), sizeof(int));												// „тение его размера
+		o.seekp(posPrev, std::ios::beg);														// €чейка указател€
+
+		o.seekp(posPrev, std::ios::beg);
+		newPointer = new int(posPrev + sizePrev + sizeof(int) + sizeof(int));
+		o.write((char*)&(*newPointer), sizeof(int));
+
+		o.seekp(*newPointer, std::ios::beg);
+		o.write((char*)&(n->nextBin), sizeof(int));
+		o.write((char*)&(n->dataSize), sizeof(int));
+		o.write((char*)&(n->data[0]), n->dataSize);
+		o.seekp(*newPointer, std::ios::beg);
+		*newPointer = *newPointer + sizeof(int) + n->dataSize + sizeof(int);
+		o.write((char*)&(*newPointer), sizeof(int));
+		delete newPointer;
+	}
 	o.close();
 }
 
@@ -281,6 +343,33 @@ inline typename Node<T> * List<T>::binRead(int pos)
 
 	i.close();
 
+	return d;
+}
+
+template<>
+inline typename Node<char*> * List<char*>::binRead(int pos)
+{
+	std::ifstream i;
+	Node<char*> *d = new Node<char*>();
+	int sz = 0;
+	int next = 0;
+	i.open(fileName, std::ios::binary | std::ofstream::app);
+	i.seekg(seek(pos) + sizeof(int), std::ios::beg);
+	i.read((char*)&(sz), sizeof(int));
+	i.seekg(seek(pos), std::ios::beg);
+	i.read((char*)&(next), sizeof(int));
+
+	i.seekg(seek(pos) + sizeof(int) + sizeof(int), std::ios::beg);
+	char* tmp = new char[sz+1];
+	for (int it = 0; it < sz; it++)
+		i.read((char*)&(tmp[it]), sizeof(char));
+	tmp[sz] = '\0';
+	i.close();
+	d->data = tmp;
+	std::string asd;
+	asd.append(tmp);
+	d->dataSize = sz;
+	d->nextBin = next;
 	return d;
 }
 
@@ -302,7 +391,6 @@ inline void List<T>::binMove(int pos, int elemSize){
 		stream.write((char*)&(*tmp), sizeof(int) + sizeof(int) + *tmpSize); // ѕереносим элемент на elemSize бит
 	}
 	stream.close();
-	delete tmp;
 }
 
 template<typename T>
