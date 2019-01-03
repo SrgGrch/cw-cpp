@@ -391,7 +391,6 @@ inline void List<T>::binMove(int pos, int elemSize){
 		stream.write((char*)&(*tmp), sizeof(int) + sizeof(int) + *tmpSize); // Переносим элемент на elemSize бит
 	}
 	stream.close();
-	delete tmp;
 }
 
 template<typename T>

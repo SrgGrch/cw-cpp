@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <conio.h>
 #include "List.h"
+#include "Source.h"
 #define type char*
 
 List<type> l;
@@ -25,17 +26,17 @@ void printMenu() {
 
 void checkInp(std::string inp) {
 	if (inp == "add") {
-		std::string arg;
+		std::string arg = "";
 		std::cin >> arg;
-		type tmp = new char[arg.length() + 1];;
+		type tmp = new char[arg.size() + 1];
 		strcpy(tmp, arg.c_str());
 		l.insert(tmp);
 	} else if (inp == "addI") {
 		std::string tmp;
 		std::cin >> tmp;
-		type arg1 = new char[tmp.length() + 1];;
 		int arg2;
 		std::cin >> arg2;
+		type arg1 = new char[tmp.length() + 1];
 		strcpy(arg1, tmp.c_str());
 		l.insert(arg1, arg2);
 	} else if (inp == "del") {
